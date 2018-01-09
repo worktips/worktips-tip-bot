@@ -1,0 +1,21 @@
+database:
+  host: "127.0.0.1"
+  port: 27017
+  user: ""
+  password: ""
+  db: "m0rkcoin_bot"
+
+discord:
+  token: ""
+
+daemon:
+  host: "127.0.0.1"
+  port: "18112"
+  user: ""
+  pass: ""
+
+wallet:
+  host: "127.0.0.1"
+  port: "8070"
+  user: ""
+  pass: ""
