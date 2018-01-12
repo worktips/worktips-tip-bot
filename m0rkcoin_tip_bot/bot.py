@@ -33,6 +33,16 @@ async def info(context: commands.Context):
         f'Registered Wallet: `{user.user_wallet_address}`')
 
 
+@bot.command(pass_context=True, help=bot_help_balance)
+async def balance(context: commands.Context):
+    user = store.register_user(context.message.author.id)
+    wallet = store.get_user_wallet(user.user_id)
+    await bot.send_message(
+        context.message.author, '**Your balance**\n\n'
+        f'Available: {wallet.actual_balance / 1000000000000:.12f} M0RK\n'
+        f'Pending: {wallet.locked_balance / 1000000000000:.12f} M0RK\n')
+
+
 @bot.command(pass_context=True, help=bot_help_register)
 async def register(context: commands.Context, wallet_address: str):
     user_id = context.message.author.id
@@ -76,27 +86,26 @@ async def withdraw(context: commands.Context, amount: float):
     user_balance_wallet: models.Wallet = models.Wallet.objects(
         wallet_address=user.balance_wallet_address).first()
 
-    if real_amount >= user_balance_wallet.actual_balance + config.tx_fee:
+    if real_amount + config.tx_fee >= user_balance_wallet.actual_balance:
         await bot.send_message(context.message.author,
                                f'Insufficient balance to withdraw '
-                               f'{real_amount / 1000000000000:.12f} MORK.')
+                               f'{real_amount / 1000000000000:.12f} M0RK.')
+        return
+
+    if real_amount > config.max_tx_amount:
+        await bot.reply(f'Transactions cannot be bigger than '
+                        f'{config.max_tx_amount / 1000000000000:.12f} M0RK')
+        return
+    elif real_amount < config.min_tx_amount:
+        await bot.reply(f'Transactions cannot be lower than '
+                        f'{config.min_tx_amount / 1000000000000:.12f} M0RK')
         return
 
     withdrawal = store.withdraw(user, real_amount)
     await bot.send_message(
         context.message.author,
-        f'You have withdrawn {real_amount / 1000000000000:.12f} MORK.\n'
+        f'You have withdrawn {real_amount / 1000000000000:.12f} M0RK.\n'
         f'Transaction hash: `{withdrawal.tx_hash}`')
-
-
-@bot.command(pass_context=True, help=bot_help_balance)
-async def balance(context: commands.Context):
-    user = store.register_user(context.message.author.id)
-    wallet = store.get_user_wallet(user.user_id)
-    await bot.send_message(
-        context.message.author, '**Your balance**\n\n'
-        f'Available: {wallet.actual_balance / 1000000000000:.12f} M0RK\n'
-        f'Pending: {wallet.locked_balance / 1000000000000:.12f} M0RK\n')
 
 
 @bot.command(pass_context=True, help=bot_help_tip)
@@ -110,25 +119,58 @@ async def tip(context: commands.Context, member: discord.Member,
     user_from_wallet: models.Wallet = models.Wallet.objects(
         wallet_address=user_from.balance_wallet_address).first()
 
-    if real_amount >= user_from_wallet.actual_balance + config.tx_fee:
+    if real_amount + config.tx_fee >= user_from_wallet.actual_balance:
         await bot.reply(
             f'Insufficient balance to send tip of '
-            f'{real_amount / 1000000000000:.12f} MORK to {member.mention}.')
+            f'{real_amount / 1000000000000:.12f} M0RK to {member.mention}.')
+        return
+
+    if real_amount > config.max_tx_amount:
+        await bot.reply(f'Transactions cannot be bigger than '
+                        f'{config.max_tx_amount / 1000000000000:.12f} M0RK.')
+        return
+    elif real_amount < config.min_tx_amount:
+        await bot.reply(f'Transactions cannot be smaller than '
+                        f'{config.min_tx_amount / 1000000000000:.12f} M0RK.')
         return
 
     tip = store.send_tip(user_from, user_to, real_amount)
 
-    await bot.reply(f'Tip of {real_amount / 1000000000000:.12f} MORK '
+    await bot.reply(f'Tip of {real_amount / 1000000000000:.12f} M0RK '
                     f'was sent to {member.mention}\n'
                     f'Transaction hash: `{tip.tx_hash}`')
 
 
+@register.error
+async def register_error(error, _: commands.Context):
+    await handle_errors(error)
+
+
+@info.error
+async def info_error(error, _: commands.Context):
+    await handle_errors(error)
+
+
+@balance.error
+async def balance_error(error, _: commands.Context):
+    await handle_errors(error)
+
+
+@withdraw.error
+async def withdraw_error(error, _: commands.Context):
+    await handle_errors(error)
+
+
 @tip.error
 async def tip_error(error, _: commands.Context):
+    await handle_errors(error)
+
+
+async def handle_errors(error):
     if isinstance(error, commands.BadArgument):
-        await bot.say(f'Invalid arguments provided. {error.args[0]}')
+        await bot.say(f'Invalid arguments provided.\n\n{error.args[0]}')
     else:
-        await bot.say('Unexpected error.')
+        await bot.say(f'Unexpected error.\n\n{error}')
 
 
 async def update_balance_wallets():
