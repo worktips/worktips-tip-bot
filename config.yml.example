@@ -1,3 +1,4 @@
+# MongoDB connection information
 database:
   host: "127.0.0.1"
   port: 27017
@@ -5,17 +6,19 @@ database:
   password: ""
   db: "m0rkcoin_bot"
 
+# Discord Bot user token
 discord:
   token: ""
 
-daemon:
-  host: "127.0.0.1"
-  port: "18112"
-  user: ""
-  pass: ""
-
+# walletd connection information
 wallet:
   host: "127.0.0.1"
   port: "8070"
-  user: ""
-  pass: ""
+
+# M0RK is 12-digit, 1000000000000
+tx_fee: 10000000
+min_tx_amount: 1000000000000
+max_tx_amount: 2000000000000000
+
+# How many seconds between balance refresh with walletd
+wallet_balance_update_interval: 30

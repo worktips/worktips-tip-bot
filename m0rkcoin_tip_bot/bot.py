@@ -7,12 +7,15 @@ from discord.ext import commands
 from m0rkcoin_tip_bot import models, store
 from m0rkcoin_tip_bot.config import config
 
-bot_description = "Tip M0RK to other users on your server."
+M0RKCOIN_DIGITS = 1000000000000
+M0RKCOIN_REPR = 'M0RK'
+
+bot_description = f"Tip {M0RKCOIN_REPR} to other users on your server."
 bot_help_register = "Register or change your deposit address."
 bot_help_info = "Get your account's info."
-bot_help_withdraw = "Withdraw M0RK from your balance."
-bot_help_balance = "Check your M0RK balance."
-bot_help_tip = "Give M0RK to a user from your balance."
+bot_help_withdraw = f"Withdraw {M0RKCOIN_REPR} from your balance."
+bot_help_balance = f"Check your {M0RKCOIN_REPR} balance."
+bot_help_tip = f"Give {M0RKCOIN_REPR} to a user from your balance."
 
 bot = commands.Bot(command_prefix='$')
 
@@ -39,8 +42,10 @@ async def balance(context: commands.Context):
     wallet = store.get_user_wallet(user.user_id)
     await bot.send_message(
         context.message.author, '**Your balance**\n\n'
-        f'Available: {wallet.actual_balance / 1000000000000:.12f} M0RK\n'
-        f'Pending: {wallet.locked_balance / 1000000000000:.12f} M0RK\n')
+        f'Available: {wallet.actual_balance / M0RKCOIN_DIGITS:.12f} '
+        f'{M0RKCOIN_REPR}\n'
+        f'Pending: {wallet.locked_balance / M0RKCOIN_DIGITS:.12f} '
+        f'{M0RKCOIN_REPR}\n')
 
 
 @bot.command(pass_context=True, help=bot_help_register)
@@ -74,7 +79,7 @@ async def register(context: commands.Context, wallet_address: str):
 async def withdraw(context: commands.Context, amount: float):
     user: models.User = models.User.objects(
         user_id=context.message.author.id).first()
-    real_amount = int(amount * 1000000000000)
+    real_amount = int(amount * M0RKCOIN_DIGITS)
 
     if not user.user_wallet_address:
         await bot.send_message(
@@ -89,22 +94,26 @@ async def withdraw(context: commands.Context, amount: float):
     if real_amount + config.tx_fee >= user_balance_wallet.actual_balance:
         await bot.send_message(context.message.author,
                                f'Insufficient balance to withdraw '
-                               f'{real_amount / 1000000000000:.12f} M0RK.')
+                               f'{real_amount / M0RKCOIN_DIGITS:.12f} '
+                               f'{M0RKCOIN_REPR}.')
         return
 
     if real_amount > config.max_tx_amount:
         await bot.reply(f'Transactions cannot be bigger than '
-                        f'{config.max_tx_amount / 1000000000000:.12f} M0RK')
+                        f'{config.max_tx_amount / M0RKCOIN_DIGITS:.12f} '
+                        f'{M0RKCOIN_REPR}')
         return
     elif real_amount < config.min_tx_amount:
         await bot.reply(f'Transactions cannot be lower than '
-                        f'{config.min_tx_amount / 1000000000000:.12f} M0RK')
+                        f'{config.min_tx_amount / M0RKCOIN_DIGITS:.12f} '
+                        f'{M0RKCOIN_REPR}')
         return
 
     withdrawal = store.withdraw(user, real_amount)
     await bot.send_message(
         context.message.author,
-        f'You have withdrawn {real_amount / 1000000000000:.12f} M0RK.\n'
+        f'You have withdrawn {real_amount / M0RKCOIN_DIGITS:.12f} '
+        f'{M0RKCOIN_REPR}.\n'
         f'Transaction hash: `{withdrawal.tx_hash}`')
 
 
@@ -114,29 +123,32 @@ async def tip(context: commands.Context, member: discord.Member,
     user_from: models.User = models.User.objects(
         user_id=context.message.author.id).first()
     user_to: models.User = store.register_user(member.id)
-    real_amount = int(amount * 1000000000000)
+    real_amount = int(amount * M0RKCOIN_DIGITS)
 
     user_from_wallet: models.Wallet = models.Wallet.objects(
         wallet_address=user_from.balance_wallet_address).first()
 
     if real_amount + config.tx_fee >= user_from_wallet.actual_balance:
-        await bot.reply(
-            f'Insufficient balance to send tip of '
-            f'{real_amount / 1000000000000:.12f} M0RK to {member.mention}.')
+        await bot.reply(f'Insufficient balance to send tip of '
+                        f'{real_amount / M0RKCOIN_DIGITS:.12f} '
+                        f'{M0RKCOIN_REPR} to {member.mention}.')
         return
 
     if real_amount > config.max_tx_amount:
         await bot.reply(f'Transactions cannot be bigger than '
-                        f'{config.max_tx_amount / 1000000000000:.12f} M0RK.')
+                        f'{config.max_tx_amount / M0RKCOIN_DIGITS:.12f} '
+                        f'{M0RKCOIN_REPR}.')
         return
     elif real_amount < config.min_tx_amount:
         await bot.reply(f'Transactions cannot be smaller than '
-                        f'{config.min_tx_amount / 1000000000000:.12f} M0RK.')
+                        f'{config.min_tx_amount / M0RKCOIN_DIGITS:.12f} '
+                        f'{M0RKCOIN_REPR}.')
         return
 
     tip = store.send_tip(user_from, user_to, real_amount)
 
-    await bot.reply(f'Tip of {real_amount / 1000000000000:.12f} M0RK '
+    await bot.reply(f'Tip of {real_amount / M0RKCOIN_DIGITS:.12f} '
+                    f'{M0RKCOIN_REPR} '
                     f'was sent to {member.mention}\n'
                     f'Transaction hash: `{tip.tx_hash}`')
 

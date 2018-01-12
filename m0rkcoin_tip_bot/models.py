@@ -1,5 +1,5 @@
-from mongoengine import Document, StringField, ReferenceField, LongField, \
-    DateTimeField
+from mongoengine import (Document, StringField, ReferenceField, LongField,
+                         DateTimeField)
 
 
 class WalletAddressField(StringField):
