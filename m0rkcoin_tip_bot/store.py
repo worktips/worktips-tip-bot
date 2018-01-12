@@ -43,8 +43,8 @@ def send_tip(user_from: models.User, user_to: models.User,
 
 
 def withdraw(user: models.User, amount: int) -> models.Withdrawal:
-    withdrawal: models.Withdrawal = models.Withdrawal(user=user, amount=amount,
-                                                      date=datetime.utcnow())
+    withdrawal = models.Withdrawal(user=user, amount=amount,
+                                   date=datetime.utcnow())
 
     tx_hash = wallet.send_transaction(user.balance_wallet_address,
                                       user.user_wallet_address, amount)

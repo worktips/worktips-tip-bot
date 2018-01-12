@@ -1,5 +1,4 @@
-from typing import List, Dict, Tuple
-from uuid import uuid4
+from typing import List, Dict
 
 from m0rkcoin_tip_bot import rpc_client
 from m0rkcoin_tip_bot.config import config
