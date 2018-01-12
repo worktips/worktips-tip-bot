@@ -11,21 +11,27 @@ class WalletAddressField(StringField):
 
 
 class User(Document):
-    user_id = StringField(max_length=20, required=True, unique=True,
-                          primary_key=True)
-    user_wallet_address = WalletAddressField(required=True, unique=True)
-    balance_wallet_address = WalletAddressField()
+    user_id = StringField(max_length=20, required=True, unique=True)
+    user_wallet_address = WalletAddressField(unique=True, default=None)
+    balance_wallet_address = WalletAddressField(unique=True)
 
 
 class Wallet(Document):
-    wallet_address = WalletAddressField(required=True, unique=True,
-                                        primary_key=True)
+    wallet_address = WalletAddressField(required=True, unique=True)
     actual_balance = LongField(default=0)
     locked_balance = LongField(default=0)
 
 
-class Tips(Document):
-    from_user = ReferenceField(User)
-    to_user = ReferenceField(User)
-    amount = LongField()
-    date = DateTimeField()
+class Tip(Document):
+    from_user = ReferenceField(User, required=True)
+    to_user = ReferenceField(User, required=True)
+    amount = LongField(required=True)
+    date = DateTimeField(required=True)
+    tx_hash = StringField()
+
+
+class Withdrawal(Document):
+    user = ReferenceField(User, required=True)
+    amount = LongField(required=True)
+    date = DateTimeField(required=True)
+    tx_hash = StringField()

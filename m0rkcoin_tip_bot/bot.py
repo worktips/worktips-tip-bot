@@ -7,11 +7,12 @@ from discord.ext import commands
 from m0rkcoin_tip_bot import models, store
 from m0rkcoin_tip_bot.config import config
 
-bot_description = "Tip M0RKs to other users on your server."
-bot_help_register = "Register yourself on the tip bot."
-bot_help_withdraw = "Withdraw M0RKs from your balance."
+bot_description = "Tip M0RK to other users on your server."
+bot_help_register = "Register or change your deposit address."
+bot_help_info = "Get your account's info."
+bot_help_withdraw = "Withdraw M0RK from your balance."
 bot_help_balance = "Check your M0RK balance."
-bot_help_tip = "Give M0RKs to a user from your balance."
+bot_help_tip = "Give M0RK to a user from your balance."
 
 bot = commands.Bot(command_prefix='$')
 
@@ -23,10 +24,13 @@ async def on_ready():
     print(bot.user.id)
 
 
-@bot.command(pass_context=True)
-async def echo(context: commands.Context, content: str):
-    await bot.say(content)
-    await bot.send_message(context.message.author, content)
+@bot.command(pass_context=True, help=bot_help_info)
+async def info(context: commands.Context):
+    user = store.register_user(context.message.author.id)
+    await bot.send_message(
+        context.message.author, f'**Account Info**\n\n'
+        f'Deposit Address: `{user.balance_wallet_address}`\n\n'
+        f'Registered Wallet: `{user.user_wallet_address}`')
 
 
 @bot.command(pass_context=True, help=bot_help_register)
@@ -35,57 +39,92 @@ async def register(context: commands.Context, wallet_address: str):
 
     existing_user: models.User = models.User.objects(user_id=user_id).first()
     if existing_user:
-        await bot.say(
-            f'{context.message.author.mention}, you are already registered. '
-            f'More details have been sent privately.')
-        await bot.send_message(
-            context.message.author,
-            f'{context.message.author.mention}, you are already registered. '
-            f'\nYour deposit address is '
-            f'`{existing_user.balance_wallet_address}`.')
-        return
+        prev_address = existing_user.user_wallet_address
+        existing_user = store.register_user(existing_user.user_id,
+                                            user_wallet=wallet_address)
+        if prev_address:
+            await bot.send_message(
+                context.message.author,
+                f'Your deposit address has been changed from:\n'
+                f'`{prev_address}`\n to\n '
+                f'`{existing_user.user_wallet_address}`')
+            return
 
-    new_user = store.register_user(user_id, wallet_address)
-    await bot.say(
-        f'{context.message.author.mention}, you have been registered. More '
-        f'details have been sent privately.')
-    await bot.send_message(
-        context.message.author,
-        f'{context.message.author.mention}, you have been registered. '
-        f'\nYou can send your deposits to '
-        f'`{new_user.balance_wallet_address}` and your '
-        f'balance will be available once confirmed.')
+    user = (existing_user or
+            store.register_user(user_id, user_wallet=wallet_address))
+
+    await bot.send_message(context.message.author,
+                           f'You have been registered.\n'
+                           f'You can send your deposits to '
+                           f'`{user.balance_wallet_address}` and your '
+                           f'balance will be available once confirmed.')
 
 
 @bot.command(pass_context=True, help=bot_help_withdraw)
 async def withdraw(context: commands.Context, amount: float):
-    await bot.say('Not implemented.')
+    user: models.User = models.User.objects(
+        user_id=context.message.author.id).first()
+    real_amount = int(amount * 1000000000000)
+
+    if not user.user_wallet_address:
+        await bot.send_message(
+            context.message.author,
+            f'You do not have a withdrawal address, please use '
+            f'`$register <wallet_address>` to register.')
+        return
+
+    user_balance_wallet: models.Wallet = models.Wallet.objects(
+        wallet_address=user.balance_wallet_address).first()
+
+    if real_amount >= user_balance_wallet.actual_balance + config.tx_fee:
+        await bot.send_message(context.message.author,
+                               f'Insufficient balance to withdraw '
+                               f'{real_amount / 1000000000000:.12f} MORK.')
+        return
+
+    withdrawal = store.withdraw(user, real_amount)
+    await bot.send_message(
+        context.message.author,
+        f'You have withdrawn {real_amount / 1000000000000:.12f} MORK.\n'
+        f'Transaction hash: `{withdrawal.tx_hash}`')
 
 
 @bot.command(pass_context=True, help=bot_help_balance)
 async def balance(context: commands.Context):
-    user_id = context.message.author.id
-    balance = store.get_wallet_balance(user_id)
-    if not balance:
-        await bot.send_message(context.message.author,
-                               "You do not seem to have an available balance, "
-                               "are you registered?")
-        return
-
+    user = store.register_user(context.message.author.id)
+    wallet = store.get_user_wallet(user.user_id)
     await bot.send_message(
         context.message.author, '**Your balance**\n\n'
-        f'Available: {balance["availableBalance"] / 1000000000000:.12f} M0RK\n'
-        f'Pending: {balance["lockedAmount"] / 1000000000000:.12f} M0RK\n')
+        f'Available: {wallet.actual_balance / 1000000000000:.12f} M0RK\n'
+        f'Pending: {wallet.locked_balance / 1000000000000:.12f} M0RK\n')
 
 
 @bot.command(pass_context=True, help=bot_help_tip)
 async def tip(context: commands.Context, member: discord.Member,
               amount: float):
-    await bot.say('Not implemented.')
+    user_from: models.User = models.User.objects(
+        user_id=context.message.author.id).first()
+    user_to: models.User = store.register_user(member.id)
+    real_amount = int(amount * 1000000000000)
+
+    user_from_wallet: models.Wallet = models.Wallet.objects(
+        wallet_address=user_from.balance_wallet_address).first()
+
+    if real_amount >= user_from_wallet.actual_balance + config.tx_fee:
+        await bot.reply(
+            f'Insufficient balance to send tip of '
+            f'{real_amount / 1000000000000:.12f} MORK to {member.mention}.')
+        return
+
+    tip = store.send_tip(user_from, user_to, real_amount)
+
+    await bot.reply(f'Tip of {real_amount / 1000000000000:.12f} MORK '
+                    f'was sent to {member.mention}\n'
+                    f'Transaction hash: `{tip.tx_hash}`')
 
 
 @tip.error
-async def tip_error(error, context: commands.Context):
+async def tip_error(error, _: commands.Context):
     if isinstance(error, commands.BadArgument):
         await bot.say(f'Invalid arguments provided. {error.args[0]}')
     else:

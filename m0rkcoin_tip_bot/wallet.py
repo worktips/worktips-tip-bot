@@ -1,11 +1,27 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
+from uuid import uuid4
 
 from m0rkcoin_tip_bot import rpc_client
+from m0rkcoin_tip_bot.config import config
 
 
 def register() -> str:
     result = rpc_client.call_method('createAddress')
     return result['address']
+
+
+def send_transaction(from_address: str, to_address: str, amount: int) -> str:
+    payload = {
+        'addresses': [from_address],
+        'transfers': [{
+            "amount": amount,
+            "address": to_address
+        }],
+        'fee': config.tx_fee,
+        'anonymity': 0
+    }
+    result = rpc_client.call_method('sendTransaction', payload=payload)
+    return result['transactionHash']
 
 
 def get_wallet_balance(address: str) -> Dict[str, int]:
