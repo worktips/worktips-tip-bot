@@ -12,8 +12,8 @@ class WalletAddressField(StringField):
 
 class User(Document):
     user_id = StringField(max_length=20, required=True, unique=True)
-    user_wallet_address = WalletAddressField(unique=True, default=None)
-    balance_wallet_address = WalletAddressField(unique=True)
+    user_wallet_address = WalletAddressField(default=None)
+    balance_wallet_address = WalletAddressField()
 
 
 class Wallet(Document):
