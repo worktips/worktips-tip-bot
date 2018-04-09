@@ -11,14 +11,6 @@ This is a Discord bot that can transfer WTIP between users. It supports:
 
 **Discord Commands**
 
-- `$register <wallet_address>`: Register a wallet to your account.
-Will be used to withdraw later.
-- `$info`: See your deposit and withdrawal addresses.
-- `$balance`: See your current available and pending balance.
-- `$tip <user_mention> <amount>`: Tip `<amount>` M0RK to `<user_mention>`.
-- `$withdraw <amount>`: Withdraws `<amount>` to your registered
-withdrawal address.
-
 - `$register <wallet_address>`: Register a wallet to your account. Will be used to withdraw later.
 - `$info`: See deposit and withdrawal addresses.
 - `$balance`: See current available and pending balance.
